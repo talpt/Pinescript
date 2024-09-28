@@ -1,0 +1,646 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © zeubetella
+
+//@version=5
+indicator("Sıkıştırılmış İndikatör Paketi")
+
+// ====================================================================================================================================================================================
+
+group_oscillator = "Osilatörler"
+group_ichimoku   = "Ichimoku"
+group_money_F    = "Para Akışı Göstergeleri"
+group_custom     = "Custom İndikatörler"
+group_others     = "Diğerleri"
+group_ma         = "Hareketli Ortalamalar"
+
+// ====================================================================================================================================================================================
+
+show_rsi        = input(false, title = "RSI",                                 group = group_oscillator)
+show_macd       = input(false, title = "MACD",                                group = group_oscillator)
+show_stoch      = input(false, title = "Stokastik",                           group = group_oscillator)
+show_stoch_rsi  = input(false, title = "Stokastik RSI",                       group = group_oscillator)
+show_mom        = input(false, title = "Momentum",                            group = group_oscillator)
+show_adx        = input(false, title = "ADX",                                 group = group_oscillator)
+show_dmi        = input(false, title = "DMI",                                 group = group_oscillator)
+show_cci        = input(false, title = "CCI",                                 group = group_oscillator)
+show_wo         = input(false, title = "Wavetrend Oscillator",                group = group_oscillator)
+
+show_ichimoku_1 = input(false, title = "Tenkan-Sen",                          group = group_ichimoku)
+show_ichimoku_2 = input(false, title = "Kijun-Sen",                           group = group_ichimoku)
+show_ichimoku_3 = input(false, title = "ChikouSpan",                          group = group_ichimoku)
+show_ichimoku_4 = input(false, title = "SenkouSpan A", inline = "SenkouSpan", group = group_ichimoku)
+show_ichimoku_5 = input(false, title = "SenkouSpan B", inline = "SenkouSpan", group = group_ichimoku)
+
+show_mfi        = input(false, title = "MFI",                                 group = group_money_F)
+show_cmf        = input(false, title = "CMF",                                 group = group_money_F)
+
+show_iftor      = input(false, title = "Inverse Fisher Transform on RSI",     group = group_custom)
+show_rott       = input(false, title = "ROTT",                                group = group_custom)
+show_efsun      = input(false, title = "EFSUN",                               group = group_custom)
+show_most       = input(false, title = "MOST",                                group = group_custom)
+show_tke        = input(false, title = "Talep Konsantrasyon Eğrisi",          group = group_custom)
+
+show_bb         = input(false, title = "Bollinger Bands",                     group = group_others)
+show_wr         = input(false, title = "Williams Yüzde Aralığı",              group = group_others)
+show_atr        = input(false, title = "ATR",                                 group = group_others)
+
+show_ma1        = input(false, title = "MA1", inline = "MA",                  group = group_ma)
+show_ma2        = input(false, title = "MA2", inline = "MA",                  group = group_ma)
+show_ma3        = input(false, title = "MA3", inline = "MA",                  group = group_ma)
+show_ma4        = input(false, title = "MA4", inline = "MA",                  group = group_ma)
+
+// ====================================================================================================================================================================================
+
+rsi_group       = "RSI Ayarları"
+macd_group      = "MACD Ayarları"
+stoch_group     = "Stokastik Ayarları"
+stoch_rsi_group = "Stokastrik RSI Ayarları"
+mom_group       = "Momentum Ayarları"
+adx_group       = "ADX Ayarları"
+dmi_group       = "DMI Ayarları"
+cci_group       = "CCI ayarları"
+wo_group        = "Wavetrend Oscillator Ayarları"
+
+ichimoku_group  = "Ichimoku Ayarları"
+
+mfi_group       = "MFI Ayarları"
+cmf_group       = "CMF Ayarları"
+
+iftor_group     = "Inverse Fisher Transform on RSI Ayarları"
+rott_group      = "ROTT Ayarları"
+efsun_group     = "EFSUN Ayarları"
+most_group      = "MOST Ayarları"
+tke_group       = "Talep Konsantrasyon Eğrisi Ayarları"
+
+bb_group        = "Bollinger Bands Ayarları"
+wr_group        = "Williams R Ayarları"
+atr_group       = "ATR Ayarları"
+
+ma_group        = "Hareketli Ortalama Ayarları"
+
+// ====================================================================================================================================================================================
+
+ma(source, length, type) =>
+    switch type
+        "SMA" => ta.sma(source, length)
+        "Bollinger Bands" => ta.sma(source, length)
+        "EMA" => ta.ema(source, length)
+        "SMMA (RMA)" => ta.rma(source, length)
+        "WMA" => ta.wma(source, length)
+        "VWMA" => ta.vwma(source, length)
+
+rsiLengthInput = input.int(14, minval=1, title="RSI Length", group=rsi_group)
+rsiSourceInput = input.source(close, "Source", group=rsi_group)
+maTypeInput    = input.string("SMA", title="MA Type", options=["SMA", "Bollinger Bands", "EMA", "SMMA (RMA)", "WMA", "VWMA"], group=rsi_group)
+maLengthInput  = input.int(14, title="MA Length", group=rsi_group)
+bbMultInput    = input.float(2.0, minval=0.001, maxval=50, title="BB StdDev", group=rsi_group)
+
+up    = ta.rma(math.max(ta.change(rsiSourceInput), 0), rsiLengthInput)
+down  = ta.rma(-math.min(ta.change(rsiSourceInput), 0), rsiLengthInput)
+rsi   = down == 0 ? 100 : up == 0 ? 0 : 100 - (100 / (1 + up / down))
+rsiMA = ma(rsi, maLengthInput, maTypeInput)
+isBB  = maTypeInput == "Bollinger Bands"
+
+rsiPlot = plot(show_rsi ? rsi : na, "RSI", color=#7E57C2)
+plot(show_rsi ? rsiMA : na, "RSI-based MA", color=color.yellow)
+
+rsiUpperBand = hline(show_rsi ? 70 : na, "RSI Upper Band", color=#787B86)
+midline      = hline(show_rsi ? 50 : na, "RSI Middle Band", color=color.new(#787B86, 50))
+rsiLowerBand = hline(show_rsi ? 30 : na , "RSI Lower Band", color=#787B86)
+
+fill(rsiUpperBand, rsiLowerBand, color=color.rgb(126, 87, 194, 90), title="RSI Background Fill")
+bbUpperBand = plot(isBB ? rsiMA + ta.stdev(rsi, maLengthInput) * bbMultInput : na, title = "Upper Bollinger Band", color=color.green)
+bbLowerBand = plot(isBB ? rsiMA - ta.stdev(rsi, maLengthInput) * bbMultInput : na, title = "Lower Bollinger Band", color=color.green)
+fill(bbUpperBand, bbLowerBand, color= isBB ? color.new(color.green, 90) : na, title="Bollinger Bands Background Fill")
+
+midLinePlot = plot(show_rsi ? 50 : na, color = na, editable = false, display = display.none)
+fill(rsiPlot, midLinePlot, 100, 70, top_color = color.new(color.green, 0), bottom_color = color.new(color.green, 100),  title = "Overbought Gradient Fill")
+fill(rsiPlot, midLinePlot, 30,  0,  top_color = color.new(color.red, 100), bottom_color = color.new(color.red, 0),      title = "Oversold Gradient Fill")
+
+// ====================================================================================================================================================================================
+
+// Getting inputs
+fast_length   = input(title="Fast Length", defval=12, group = macd_group)
+slow_length   = input(title="Slow Length", defval=26, group = macd_group)
+src           = input(title="Source",      defval=close, group = macd_group)
+signal_length = input.int(title="Signal Smoothing",  minval = 1, maxval = 50, defval = 9, group = macd_group)
+sma_source    = input.string(title="Oscillator MA Type",  defval="EMA", options=["SMA", "EMA"], group = macd_group)
+sma_signal    = input.string(title="Signal Line MA Type", defval="EMA", options=["SMA", "EMA"], group = macd_group)
+// Plot colors
+col_macd       = input(#2962FF, "MACD Line  ",   group=macd_group, inline="MACD")
+col_signal     = input(#FF6D00, "Signal Line  ", group=macd_group, inline="Signal")
+col_grow_above = input(#26A69A, "Above   Grow",  group=macd_group, inline="Above")
+col_fall_above = input(#B2DFDB, "Fall",          group=macd_group, inline="Above")
+col_grow_below = input(#FFCDD2, "Below Grow",    group=macd_group, inline="Below")
+col_fall_below = input(#FF5252, "Fall",          group=macd_group, inline="Below")
+// Calculating
+fast_ma = sma_source == "SMA" ? ta.sma(src, fast_length) : ta.ema(src, fast_length)
+slow_ma = sma_source == "SMA" ? ta.sma(src, slow_length) : ta.ema(src, slow_length)
+macd    = fast_ma - slow_ma
+signal  = sma_signal == "SMA" ? ta.sma(macd, signal_length) : ta.ema(macd, signal_length)
+hist    = macd - signal
+hline(show_macd ? 0 : na, "Zero Line", color=color.new(#787B86, 50))
+plot(show_macd ? hist : na, title="Histogram", style=plot.style_columns, color=(hist>=0 ? (hist[1] < hist ? col_grow_above : col_fall_above) : (hist[1] < hist ? col_grow_below : col_fall_below)))
+plot(show_macd ? macd : na, title="MACD", color=col_macd)
+plot(show_macd ? signal : na, title="Signal", color=col_signal)
+
+buycond  = ta.crossover(macd,signal)
+sellcond = ta.crossover(signal,macd)
+
+plot1 = macd
+plot2 = sma_signal == "SMA" ? ta.sma(macd, signal_length) : ta.ema(macd, signal_length)
+
+// Giriş Sinyalleri
+signals = input.bool(defval=true, title="Signals")
+plotshape(show_macd ? (signals ? buycond==1  ? plot1 : na : na) : na, title='MACD Buy Point',  location=location.absolute, style=shape.circle, size=size.tiny, color = color.rgb(0, 255, 8), editable=true)
+plotshape(show_macd ? (signals ? sellcond==1 ? plot1 : na : na) : na, title='MACD Sell Point', location=location.absolute, style=shape.circle, size=size.tiny, color = #ff0000, editable=true)
+
+// ====================================================================================================================================================================================
+
+conversionPeriods   = input.int(9, minval=1,  title="Conversion Line Length", group = ichimoku_group)
+basePeriods         = input.int(26, minval=1, title="Base Line Length"      , group = ichimoku_group)
+laggingSpan2Periods = input.int(52, minval=1, title="Leading Span B Length",  group = ichimoku_group)
+displacement        = input.int(26, minval=1, title="Lagging Span",           group = ichimoku_group)
+
+donchian(len)       => math.avg(ta.lowest(len), ta.highest(len))
+conversionLine      = donchian(conversionPeriods)
+baseLine            = donchian(basePeriods)
+leadLine1           = math.avg(conversionLine, baseLine)
+leadLine2           = donchian(laggingSpan2Periods)
+
+plot(show_ichimoku_1 ? conversionLine : na, color=#2962FF, title="Conversion Line")
+plot(show_ichimoku_2 ? baseLine : na, color=#B71C1C, title="Base Line")
+plot(show_ichimoku_3 ? close : na, offset = -displacement + 1, color=#43A047, title="Lagging Span")
+leading_span_a = plot(show_ichimoku_4 ? leadLine1 : na, offset = displacement - 1, color=#A5D6A7,
+	 title="Leading Span A")
+leading_span_b = plot(show_ichimoku_5 ? leadLine2 : na, offset = displacement - 1, color=#EF9A9A,
+	 title="Leading Span B")
+plot(leadLine1 > leadLine2 ? leadLine1 : leadLine2, offset = displacement - 1, title = "Kumo Cloud Upper Line", display = display.none) 
+plot(leadLine1 < leadLine2 ? leadLine1 : leadLine2, offset = displacement - 1, title = "Kumo Cloud Lower Line", display = display.none) 
+fill(leading_span_a, leading_span_b, color = leadLine1 > leadLine2 ? color.rgb(67, 160, 71, 90) : color.rgb(244, 67, 54, 90))
+
+// ====================================================================================================================================================================================
+
+periodK = input.int(14, title="%K Length", minval=1, group = stoch_group)
+smoothK = input.int(1, title="%K Smoothing", minval=1, group = stoch_group)
+periodD = input.int(3, title="%D Smoothing", minval=1, group = stoch_group)
+k_stoch = ta.sma(ta.stoch(close, high, low, periodK), smoothK)
+d_stoch = ta.sma(k_stoch, periodD)
+
+plot(show_stoch ? k_stoch : na, title="%K", color=#2962FF)
+plot(show_stoch ? d_stoch : na, title="%D", color=#FF6D00)
+h0 = hline(show_stoch ? 80 : na, "Upper Band", color=#787B86)
+hline(show_stoch ? 50 : na, "Middle Band", color=color.new(#787B86, 50))
+h1 = hline(show_stoch ? 20 : na, "Lower Band", color=#787B86)
+fill(h0, h1, color=color.rgb(33, 150, 243, 90), title="Background")
+
+// ====================================================================================================================================================================================
+
+smoothK_rsi   = input.int(3, "K", minval=1, group = stoch_rsi_group)
+smoothD_rsi   = input.int(3, "D", minval=1, group = stoch_rsi_group)
+lengthRSI     = input.int(14, "RSI Length", minval=1, group = stoch_rsi_group)
+lengthStoch   = input.int(14, "Stochastic Length", minval=1, group = stoch_rsi_group)
+src_stoch_rsi = input(close, title="RSI Source", group = stoch_rsi_group)
+rsi1          = ta.rsi(src, lengthRSI)
+k_stoch_rsi   = ta.sma(ta.stoch(rsi1, rsi1, rsi1, lengthStoch), smoothK)
+d_stoch_rsi   = ta.sma(k_stoch_rsi, smoothD_rsi)
+
+plot(show_stoch_rsi ? k_stoch_rsi : na, "K", color=#2962FF)
+plot(show_stoch_rsi ? d_stoch_rsi : na, "D", color=#FF6D00)
+h0_stoch_rsi = hline(show_stoch_rsi ? 80 : na, "Upper Band", color=#787B86)
+hline(show_stoch_rsi ? 50 : na, "Middle Band", color=color.new(#787B86, 50))
+h1_stoch_rsi = hline(show_stoch_rsi ? 20 : na, "Lower Band", color=#787B86)
+fill(h0_stoch_rsi, h1_stoch_rsi, color=color.rgb(33, 150, 243, 90), title="Background")
+
+// ====================================================================================================================================================================================
+
+adxlen = input(14, title="ADX Smoothing", group = adx_group)
+dilen  = input(14, title="DI Length", group = adx_group)
+dirmov(len) =>
+	up = ta.change(high)
+	down = -ta.change(low)
+	plusDM = na(up) ? na : (up > down and up > 0 ? up : 0)
+	minusDM = na(down) ? na : (down > up and down > 0 ? down : 0)
+	truerange = ta.rma(ta.tr, len)
+	plus = fixnan(100 * ta.rma(plusDM, len) / truerange)
+	minus = fixnan(100 * ta.rma(minusDM, len) / truerange)
+	[plus, minus]
+adx(dilen, adxlen) =>
+	[plus, minus] = dirmov(dilen)
+	sum = plus + minus
+	adx = 100 * ta.rma(math.abs(plus - minus) / (sum == 0 ? 1 : sum), adxlen)
+sig = adx(dilen, adxlen)
+
+plot(show_adx ? sig : na, color=color.red, title="ADX")
+
+// ====================================================================================================================================================================================
+
+len_mom = input.int(10, minval=1, title="Length", group = mom_group)
+src_mom = input(close, title="Source", group = mom_group)
+mom = src - src_mom[len_mom]
+plot(show_mom ? mom : na, color=#2962FF, title="MOM")
+
+// ====================================================================================================================================================================================
+
+length_cci = input.int(20, minval=1, group = cci_group)
+src_cci = input(hlc3, title="Source", group = cci_group)
+ma_cci = ta.sma(src_cci, length_cci)
+cci = (src - ma_cci) / (0.015 * ta.dev(src_cci, length_cci))
+
+plot(show_cci ? cci : na, "CCI", color=#2962FF)
+band1 = hline(show_cci ? 100 : na, "Upper Band", color=#787B86, linestyle=hline.style_dashed)
+hline(show_cci ? 0 : na, "Middle Band", color=color.new(#787B86, 50))
+band0 = hline(show_cci ? -100 : na, "Lower Band", color=#787B86, linestyle=hline.style_dashed)
+fill(band1, band0, color=color.rgb(33, 150, 243, 90), title="Background")
+
+ma_cci(source, length, type) =>
+    switch type
+        "SMA" => ta.sma(source, length)
+        "EMA" => ta.ema(source, length)
+        "SMMA (RMA)" => ta.rma(source, length)
+        "WMA" => ta.wma(source, length)
+        "VWMA" => ta.vwma(source, length)
+
+typeMA = input.string(title = "Method", defval = "SMA", options=["SMA", "EMA", "SMMA (RMA)", "WMA", "VWMA"], group="Smoothing")
+smoothingLength = input.int(title = "Length", defval = 5, minval = 1, maxval = 100, group="Smoothing")
+
+smoothingLine = ma_cci(cci, smoothingLength, typeMA)
+plot(show_cci ? smoothingLine : na, title="Smoothing Line", color=#f37f20, display=display.none)
+
+// ====================================================================================================================================================================================
+
+length_bb = input.int(20, minval=1, group = bb_group)
+maType_bb = input.string("SMA", "Basis MA Type", options = ["SMA", "EMA", "SMMA (RMA)", "WMA", "VWMA"], group = bb_group)
+src_bb    = input(close, title="Source", group = bb_group)
+mult_bb   = input.float(2.0, minval=0.001, maxval=50, title="StdDev", group = bb_group)
+
+ma_bb(source, length, _type) =>
+    switch _type
+        "SMA" => ta.sma(source, length)
+        "EMA" => ta.ema(source, length)
+        "SMMA (RMA)" => ta.rma(source, length)
+        "WMA" => ta.wma(source, length)
+        "VWMA" => ta.vwma(source, length)
+
+basis  = ma_bb(src_bb, length_bb, maType_bb)
+dev    = mult_bb * ta.stdev(src_bb, length_bb)
+upper  = basis + dev
+lower  = basis - dev
+offset = input.int(0, "Offset", minval = -500, maxval = 500)
+
+p1_bb = plot(show_bb ? upper : na, "Upper", color=#2962FF, offset = offset)
+p2_bb = plot(show_bb ? lower : na, "Lower", color=#2962FF, offset = offset)
+
+plot(show_bb ? basis : na, "Basis", color=#FF6D00, offset = offset)
+fill(p1_bb, p2_bb, title = "Background", color=color.rgb(33, 150, 243, 95))
+
+// ====================================================================================================================================================================================
+
+n1       = input(10, "Channel Length",      group = wo_group)
+n2       = input(21, "Average Length",      group = wo_group)
+obLevel1 = input(60, "Over Bought Level 1", group = wo_group)
+obLevel2 = input(53, "Over Bought Level 2", group = wo_group)
+osLevel1 = input(-60, "Over Sold Level 1",  group = wo_group)
+osLevel2 = input(-53, "Over Sold Level 2",  group = wo_group)
+
+ap  = (high + low + close) / 3
+esa = ta.ema(ap, n1)
+d   = ta.ema(math.abs(ap - esa), n1)
+ci  = (ap - esa) / (0.015 * d)
+tci = ta.ema(ci, n2)
+wt1 = tci
+wt2 = ta.sma(wt1, 4)
+
+plot(show_wo ? obLevel1 : na, "Over Bought Level 1", color=color.blue)
+plot(show_wo ? obLevel2 : na, "Over Bought Level 2", color=color.red)
+plot(show_wo ? osLevel1 : na, "Over Sold Level 1",   color=color.blue)
+plot(show_wo ? osLevel2 : na, "Over Sold Level 2",   color=color.red)
+
+plot(show_wo ? wt1 : na, "WT1", color=color.green)
+plot(show_wo ? wt2 : na, "WT2", color=color.orange)
+
+// ====================================================================================================================================================================================
+
+length_atr    = input.int(title="Length", defval=14, minval=1, group = atr_group)
+smoothing_atr = input.string(title="Smoothing", defval="RMA", options=["RMA", "SMA", "EMA", "WMA"], group = atr_group)
+ma_function(source, length) =>
+	switch smoothing_atr
+		"RMA" => ta.rma(source, length)
+		"SMA" => ta.sma(source, length)
+		"EMA" => ta.ema(source, length)
+		=> ta.wma(source, length)
+
+plot(show_atr ? (ma_function(ta.tr(true), length_atr)) : na, title = "ATR", color=color.new(#B71C1C, 0))
+
+// ====================================================================================================================================================================================
+
+X1 = input(30,   tooltip = "The standart value is 30", group = rott_group)
+X2 = input(1000, title = "VAR Length", tooltip = "The standart value is 1000 \nCan be decreased / increased by step value of 100", group = rott_group)
+
+f_var(data,u1) =>
+    a = 9
+    b = data > data[1] ? data - data[1] : 0
+    c = data < data[1] ? data[1] - data : 0
+    d = math.sum(b , a)
+    e = math.sum(c , a)
+    f = nz((d - e) / (d + e))
+    g = math.abs(f)
+    h = 2 / (u1 + 1)
+    x = ta.sma(data , u1)
+    vidya = 0.0
+    vidya :=
+     u1==1 ? data : na(vidya[1]) ? x :
+     g * h * (data - nz(vidya[1])) + nz(vidya[1])
+   
+perfect_ma2 = 2 * f_var(close , X2)
+
+OTT(source, length, percent) =>
+    MAVG = f_var(source, length)
+    fark = MAVG * percent * 0.01
+    longStop = MAVG - fark
+    longStopPrev = nz(longStop[1], longStop)
+    longStop := MAVG > longStopPrev ? math.max(longStop, longStopPrev) : longStop
+    shortStop = MAVG + fark
+    shortStopPrev = nz(shortStop[1], shortStop)
+    shortStop := MAVG < shortStopPrev ? math.min(shortStop, shortStopPrev) : shortStop
+    dir = 1
+    dir := nz(dir[1], dir)
+    dir := dir == -1 and MAVG > shortStopPrev ? 1 : dir == 1 and MAVG < longStopPrev ? -1 : dir
+    MT = dir == 1 ? longStop : shortStop
+    OTT = MAVG > MT ? MT * (200 + percent) / 200 : MT * (200 - percent) / 200
+    out = nz(OTT[2])
+
+length_ott  = input.int(30,    'OTT Period',  minval=1, tooltip = "The standart value is same with the X1 parameter")
+percent_ott = input.float(7.0, 'OTT Percent', step=0.1, minval=0, tooltip = "The standart value is 7")
+
+ott = OTT(perfect_ma2 , length_ott , percent_ott)
+
+bar_cond0 = ta.barssince(ta.crossover(perfect_ma2 , ott))
+bar_cond1 = ta.barssince(ta.crossover(ott , perfect_ma2))
+
+plot_rott_support = plot(show_rott ? perfect_ma2 : na, color= color.new(#31e7ff, 0),  title="SUPPORT")
+plot_rott         = plot(show_rott ? ott : na,         color= color.rgb(217, 0, 255), title="ROTT")
+
+// ====================================================================================================================================================================================
+
+variable1 = input(10,        title="MA Periyodu",   group=efsun_group)
+float variable2 = input(0.5, title="Takip Yüzdesi", group=efsun_group)
+ab = 2/(variable1+1)
+
+var float cd = na
+var float[] hourlyData = array.new_float()
+
+isLessThan1Hour = timeframe.isminutes and timeframe.multiplier < 61
+
+updateHourlyData() =>
+    if isLessThan1Hour
+        array.unshift(hourlyData, ta.ema(close, variable1))
+
+calculateCD() =>
+    isLessThan1Hour ? array.get(hourlyData, 0) : ta.ema(close, 10)
+
+updateHourlyData()
+cd := calculateCD()
+
+avg0 = ta.ema(close , variable1)
+
+avg1 = avg0 - (avg0 * variable2 / 100)
+avg2 = avg0 + (avg0 * variable2 / 100)
+
+var float line1 = na
+var float line2 = na
+
+line1 := na(line1[1]) ? avg1 : (avg0 < line1[1] ? avg1 : (avg1 > line1[1] ? avg1 : line1[1]))
+line2 := na(line2[1]) ? avg2 : (avg0 > line2[1] ? avg2 : (avg2 < line2[1] ? avg2 : line2[1]))
+
+cond1 = ta.crossover(avg0, line2[1])
+cond2 = ta.crossunder(line1[1], avg0)
+
+s1 = ta.barssince(cond1) < ta.barssince(cond2)
+s2 = s1 ? line1 : line2
+
+p1 = plot(show_efsun ? s2 : na, "MOST",    color=color.yellow, linewidth = 2)
+p2 = plot(show_efsun ? avg0 : na, "ExMov", color=color.white, linewidth = 2)
+
+// ====================================================================================================================================================================================
+
+lensig_dmi = input.int(14, title="ADX Smoothing", minval=1, maxval=50, group = dmi_group)
+len_dmi    = input.int(14, minval=1, title="DI Length", group = dmi_group)
+up_dmi     = ta.change(high)
+down_dmi   = -ta.change(low)
+plusDM     = na(up) ? na : (up > down and up > 0 ? up : 0)
+minusDM    = na(down) ? na : (down > up and down > 0 ? down : 0)
+trur       = ta.rma(ta.tr, len_dmi)
+plus       = fixnan(100 * ta.rma(plusDM, len_dmi) / trur)
+minus      = fixnan(100 * ta.rma(minusDM, len_dmi) / trur)
+sum        = plus + minus
+adx        = 100 * ta.rma(math.abs(plus - minus) / (sum == 0 ? 1 : sum), lensig_dmi)
+
+plot(show_dmi ? adx   : na, color=#F50057, title="ADX")
+plot(show_dmi ? plus  : na, color=#2962FF, title="+DI")
+plot(show_dmi ? minus : na, color=#FF6D00, title="-DI")
+
+// ====================================================================================================================================================================================
+
+length_mfi = input.int(title="Length", defval=14, minval=1, maxval=2000, group = mfi_group)
+src_mfi    = hlc3
+mf_mfi     = ta.mfi(src_mfi, length_mfi)
+
+overbought_mfi = hline(show_mfi ? 80 : na, title="Overbought", color=#787B86)
+oversold_mfi   = hline(show_mfi ? 20 : na, title="Oversold", color=#787B86)
+
+plot(show_mfi ? mf_mfi : na, "MF", color=#7E57C2)
+hline(show_mfi ? 50 : na, "Middle Band", color=color.new(#787B86, 50))
+fill(overbought_mfi, oversold_mfi, color=color.rgb(126, 87, 194, 90), title="Background")
+
+// ====================================================================================================================================================================================
+
+var cumVol = 0.
+cumVol += nz(volume)
+if barstate.islast and cumVol == 0
+    runtime.error("No volume is provided by the data vendor.")
+length = input.int(20, minval=1, group = cmf_group)
+ad = close==high and close==low or high==low ? 0 : ((2*close-low-high)/(high-low))*volume
+mf = math.sum(ad, length) / math.sum(volume, length)
+plot(show_cmf ? mf : na, color=#43A047, title="MF")
+hline(show_cmf ? 0 : na, color=#787B86, title="Zero", linestyle=hline.style_dashed)
+
+// ====================================================================================================================================================================================
+
+rsilength_ift = input(5, title = 'RSI Length', group = iftor_group)
+wmalength_ift = input(9, title = 'Smoothing length', group = iftor_group)
+v1            = 0.1 * (ta.rsi(close, rsilength_ift) - 50)
+v2            = ta.wma(v1, wmalength_ift)
+INV           = (math.exp(2 * v2) - 1) / (math.exp(2 * v2) + 1)
+
+plot(show_iftor  ? INV  : na, color=color.new(color.green, 0), linewidth=2)
+hline(show_iftor ? 0.5  : na, color=color.red)
+hline(show_iftor ? -0.5 : na, color=color.green)
+
+// ====================================================================================================================================================================================
+
+length_wr = input(title="Length", defval=14, group = wr_group)
+src_wr    = input(close, "Source", group = wr_group)
+_pr(length) =>
+	max = ta.highest(length)
+	min = ta.lowest(length)
+	100 * (src - max) / (max - min)
+percentR_wr = _pr(length)
+obPlot_wr   = hline(show_wr ? -20 : na, title="Upper Band", color=#787B86)
+
+hline(show_wr ? -50 : na, title="Middle Level", linestyle=hline.style_dotted, color=#787B86)
+osPlot_wr = hline(show_wr ? -80 : na, title="Lower Band", color=#787B86)
+fill(obPlot_wr, osPlot_wr, title="Background", color=color.rgb(126, 87, 194, 90))
+plot(show_wr ? percentR_wr : na, title="%R", color=#7E57C2)
+
+// ====================================================================================================================================================================================
+
+period1_most       = input(14, title="Periyot", group = most_group)
+float percent_most = input(2,  title="Yüzde",   group = most_group)
+
+avg0_most = ta.ema(close, period1_most)
+
+avg1_most = avg0_most - (avg0 * percent_most / 100)
+avg2_most = avg0_most + (avg0 * percent_most / 100)
+
+var float line1_most = na
+var float line2_most = na
+
+line1_most := na(line1_most[1]) ? avg1_most : (avg0_most < line1_most[1] ? avg1_most : (avg1_most > line1_most[1] ? avg1_most : line1_most[1]))
+line2_most := na(line2_most[1]) ? avg2_most : (avg0_most > line2_most[1] ? avg2_most : (avg2_most < line2_most[1] ? avg2_most : line2_most[1]))
+
+cond1_most = ta.crossover(avg0_most, line2_most[1])
+cond2_most = ta.crossunder(line1_most[1], avg0_most)
+
+s1_most = ta.barssince(cond1_most) < ta.barssince(cond2_most)
+s2_most = s1_most ? line1_most : line2_most
+
+plot(show_most ? s2_most : na,   "MOST",  color = color.red, linewidth = 2)
+plot(show_most ? avg0_most : na, "ExMov", color = #00FF00,   linewidth = 2)
+
+// ====================================================================================================================================================================================
+
+period_tke    = input.int(14, title='period',    minval=1, maxval=500, group = tke_group)
+emaperiod_tke = input.int(5,  title='EMAperiod', minval=1, maxval=500, group = tke_group)
+EMA_tke       = input(false,  title='Show EMA Line?')
+momentum_tke  = close / close[period_tke] * 100
+cci_tke       = ta.cci(hlc3, period_tke)
+rsi_tke       = ta.rsi(close, period_tke)
+willr_tke     = (ta.highest(high, period_tke) - close) / (ta.highest(high, period_tke) - ta.lowest(low, period_tke)) * -100
+stosk_tke     = ta.stoch(close, high, low, period_tke)
+upper_s_tke   = math.sum(volume * (ta.change(hlc3) <= 0 ? 0 : hlc3), period_tke)
+lower_s_tke   = math.sum(volume * (ta.change(hlc3) >= 0 ? 0 : hlc3), period_tke)
+mfi_tke       = 100.0 - 100.0 / (1.0 + upper_s_tke / lower_s_tke)
+spacing_tke   = input(7)
+length7_tke   = input.int(7,  minval=1, group = tke_group)
+length14_tke  = input.int(14, minval=1, group = tke_group)
+length28_tke  = input.int(28, minval=1, group = tke_group)
+
+average(bp, tr_, length) =>
+    math.sum(bp, length) / math.sum(tr_, length)
+high__tke = math.max(high, close[1])
+low__tke  = math.min(low, close[1])
+bp_tke    = close - low__tke
+tr__tke   = high__tke - low__tke
+avg7_tke  = average(bp_tke, tr__tke, length7_tke)
+avg14_tke = average(bp_tke, tr__tke, length14_tke)
+avg28_tke = average(bp_tke, tr__tke, length28_tke)
+ult_tke   = 100 * (4 * avg7_tke + 2 * avg14_tke + avg28_tke) / 7
+TKEline_tke = (ult_tke + mfi_tke + momentum_tke + cci_tke + rsi_tke + willr_tke + stosk_tke) / 7
+EMAline_tke = ta.ema(TKEline_tke, emaperiod_tke)
+
+plot(show_tke ? (EMA_tke and EMAline_tke ? EMAline_tke : na) : na, title='EMA Line', style=plot.style_line, linewidth=2, color=color.new(color.blue, 0))
+plot(show_tke ? TKEline_tke : na, color=color.new(color.red, 0), linewidth=3, title='TKE')
+plot(show_tke ? 20 : na, color=color.new(color.blue, 0),         linewidth=0, title='')
+plot(show_tke ? 80 : na, color=color.new(color.red, 0),          linewidth=0, title='')
+plot(show_tke ? 0  : na, color=color.new(color.purple, 0),       linewidth=0, title='')
+
+// ====================================================================================================================================================================================
+
+source_for_moving_averages = close
+
+// =====================================================================================================================
+
+f_var_ma(data,u1) =>
+    a = 9
+    b = data > data[1] ? data - data[1] : 0
+    c = data < data[1] ? data[1] - data : 0
+    d = math.sum(b , a)
+    e = math.sum(c , a)
+    f = nz((d - e) / (d + e))
+    g = math.abs(f)
+    h = 2 / (u1 + 1)
+    x = ta.sma(data , u1)
+    vidya = 0.0
+    vidya :=
+     u1==1 ? data : na(vidya[1]) ? x :
+     g * h * (data - nz(vidya[1])) + nz(vidya[1])
+
+f_hull_ma(source,len) =>
+    ta.wma(2*ta.wma(source, len/2)-ta.wma(source, len), math.floor(math.sqrt(len)))
+
+// =====================================================================================================================
+
+ma1(source_for_moving_averages, length, type) =>
+    switch type
+        "WMA"     => ta.wma(source_for_moving_averages,    length)
+        "EMA"     => ta.ema(source_for_moving_averages,    length)
+        "SMA"     => ta.sma(source_for_moving_averages,    length)
+        "VWMA"    => ta.vwma(source_for_moving_averages,   length)
+        "HULL MA" => f_hull_ma(source_for_moving_averages, length)
+        "VAR"     => f_var_ma(source_for_moving_averages,  length)
+
+maTypeInput1   = input.string("EMA", title="MA 1 Türü", options=["WMA","EMA","SMA","VWMA","HULL MA", "VAR"], group=ma_group)
+ma1_linewidth  = input.int(1,        title="MA 1 Çizgi Kalımlığı",                                           group=ma_group)
+maLengthInput1 = input.int(9,        title="MA 1 Periyodu",                                                  group=ma_group)
+
+ma2(source_for_moving_averages, length, type) =>
+    switch type
+        "WMA"     => ta.wma(source_for_moving_averages,    length)
+        "EMA"     => ta.ema(source_for_moving_averages,    length)
+        "SMA"     => ta.sma(source_for_moving_averages,    length)
+        "VWMA"    => ta.vwma(source_for_moving_averages,   length)
+        "HULL MA" => f_hull_ma(source_for_moving_averages, length)
+        "VAR"     => f_var_ma(source_for_moving_averages,  length)
+
+maTypeInput2   = input.string("EMA", title="MA 2 Türü", options=["WMA","EMA","SMA","VWMA","HULL MA","VAR"], group=ma_group)
+ma2_linewidth  = input.int(1,        title="MA 2 Çizgi Kalımlığı",                                          group=ma_group)
+maLengthInput2 = input.int(20,       title="MA 2 Periyodu",                                                 group=ma_group)
+
+ma3(source_for_moving_averages, length, type) =>
+    switch type
+        "WMA"     => ta.wma(source_for_moving_averages,    length)
+        "EMA"     => ta.ema(source_for_moving_averages,    length)
+        "SMA"     => ta.sma(source_for_moving_averages,    length)
+        "VWMA"    => ta.vwma(source_for_moving_averages,   length)
+        "HULL MA" => f_hull_ma(source_for_moving_averages, length)
+        "VAR"     => f_var_ma(source_for_moving_averages,  length)
+
+maTypeInput3   = input.string("EMA", title="MA 3 Türü", options=["WMA","EMA","SMA","VWMA","HULL MA","VAR"], group=ma_group)
+ma3_linewidth  = input.int(1,        title="MA 3 Çizgi Kalımlığı",                                          group=ma_group)
+maLengthInput3 = input.int(50,       title="MA 3 Periyodu",                                                 group=ma_group)
+
+ma4(source_for_moving_averages, length, type) =>
+    switch type
+        "WMA"     => ta.wma(source_for_moving_averages,    length)
+        "EMA"     => ta.ema(source_for_moving_averages,    length)
+        "SMA"     => ta.sma(source_for_moving_averages,    length)
+        "VWMA"    => ta.vwma(source_for_moving_averages,   length)
+        "HULL MA" => f_hull_ma(source_for_moving_averages, length)
+        "VAR"     => f_var_ma(source_for_moving_averages,  length)
+
+maTypeInput4   = input.string("EMA", title="MA 4 Türü", options=["WMA","EMA","SMA","VWMA","HULL MA","VAR"], group=ma_group)
+ma4_linewidth  = input.int(1,        title="MA 4 Çizgi Kalımlığı",                                          group=ma_group)
+maLengthInput4 = input.int(100,      title="MA 4 Periyodu",                                                 group=ma_group)
+
+maline1 = ma1(source_for_moving_averages, maLengthInput1, maTypeInput1)
+maline2 = ma2(source_for_moving_averages, maLengthInput2, maTypeInput2)
+maline3 = ma3(source_for_moving_averages, maLengthInput3, maTypeInput3)
+maline4 = ma4(source_for_moving_averages, maLengthInput4, maTypeInput4)
+
+plot(show_ma1 ? maline1 : na, title="Birinci MA Çizgisi",  color=color.new(color.yellow, 0), linewidth=ma1_linewidth)
+plot(show_ma2 ? maline2 : na, title="İkinci MA Çizgisi",   color=color.new(color.white, 0),  linewidth=ma2_linewidth)
+plot(show_ma3 ? maline3 : na, title="Üçüncü MA Çizgisi",   color=color.new(color.blue, 0),   linewidth=ma3_linewidth)
+plot(show_ma4 ? maline4 : na, title="Dördüncü MA Çizgisi", color=color.new(color.red, 0),    linewidth=ma4_linewidth)
+
+// ====================================================================================================================================================================================
