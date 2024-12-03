@@ -1,0 +1,268 @@
+//@version=5
+strategy(title='Follow Line with Multiple TP', overlay=true,calc_on_every_tick = true)
+
+// --- settings 
+BBperiod = input.int(defval=21, title='Bollinger Bands Period', minval=1)
+BBdeviation = input.float(defval=1.00, title='Bollinger Bands Deviation', minval=0.1, step=0.1)
+UseATRfilter = input(defval=true, title='ATR Filter On/Off') // false = 0, true = 1
+ATRperiod = input.int(defval=5, title='ATR Period', minval=1)
+//showsignals  = input(title='Show Signals ', defval=true)
+// --- end of settings
+
+// Bollinger Bands calculation
+BBUpper = ta.sma(close, BBperiod) + ta.stdev(close, BBperiod) * BBdeviation
+BBLower = ta.sma(close, BBperiod) - ta.stdev(close, BBperiod) * BBdeviation
+
+// ATR calculation
+atrValue = ta.atr(ATRperiod)
+
+// Signal initialization
+var float FollowLine = na
+var int BBSignal = 0
+
+// Determine BB signal
+if (close > BBUpper)
+    BBSignal := 1
+else if (close < BBLower)
+    BBSignal := -1
+
+// Buy signal logic
+if (BBSignal == 1) 
+    if (UseATRfilter) 
+        FollowLine := low - atrValue
+    else
+        FollowLine := low
+    if (FollowLine < nz(FollowLine[1]))
+        FollowLine := nz(FollowLine[1])
+
+// Sell signal logic
+if (BBSignal == -1) 
+    if (UseATRfilter) 
+        FollowLine := high + atrValue
+    else
+        FollowLine := high
+    if (FollowLine > nz(FollowLine[1]))
+        FollowLine := nz(FollowLine[1])
+
+// Trend direction determination
+var int iTrend = 0
+if (nz(FollowLine) > nz(FollowLine[1]))
+    iTrend := 1
+else if (nz(FollowLine) < nz(FollowLine[1]))
+    iTrend := -1
+
+// Trend line color based on trend direction
+lineColor = iTrend > 0 ? color.rgb(9, 98, 232) : color.new(color.rgb(220, 20, 60), 0)
+
+//buy & sell conditions
+buy=0.0
+sell=0.0
+buy:=iTrend[1]==-1 and iTrend==1 ? 1 : na
+sell:=iTrend[1]==1 and iTrend==-1? 1 : na
+
+//alerts
+//alertcondition(sell == 1 ,title="Sell",message="Follow Line Sell")
+//alertcondition(buy == 1 ,title="Buy",message="Follow Line Buy")
+//alertcondition(buy == 1 or sell == 1 ,title="Signal",message="Follow Line Signal")
+
+// Plot the trend line and signals
+plot(FollowLine, color=lineColor, linewidth=2, title="Follow Line")
+//plotshape(buy == 1 and showsignals ? FollowLine-atrValue :na, text='BUY', style= shape.labelup, location=location.absolute, color=color.blue, textcolor=color.white, offset=0, size=size.auto)
+//plotshape(sell == 1 and showsignals ? FollowLine+atrValue:na, text='SELL', style=shape.labeldown, location=location.absolute, color=color.rgb(102, 15, 15), textcolor=color.white, offset=0,size=size.auto)
+
+show_lb=input.bool(true,title = "Show Labels")
+
+numberofamount=input.int(defval = 5,title="Number of Amount",group="Trade Settings")
+
+tradeDirection = input.string("Long", title="Trade Direction", options=["Long", "Short", "Both"],group="Trade Settings")
+
+stopLossPercentage      = input.float(0, title="Stop Loss %", minval=0.0,group="Stop Loss Settings")
+
+numberOfSteps = input.int(5, title="Number of Take Profit Steps", minval=0, maxval=5, group="Take Profit Settings")
+
+takeProfitPercent1 = input.float(2.0, title="Take Profit % Step 1", group="Take Profit Settings")
+takeProfitPercent2 = input.float(4.0, title="Take Profit % Step 2", group="Take Profit Settings")
+takeProfitPercent3 = input.float(6.0, title="Take Profit % Step 3", group="Take Profit Settings")
+takeProfitPercent4 = input.float(8.0, title="Take Profit % Step 4", group="Take Profit Settings")
+takeProfitPercent5 = input.float(10.0, title="Take Profit % Step 5", group="Take Profit Settings")
+
+takeProfitAmount1 = input.float(1, title="Take Profit Amount Step 1", group="Take Profit Settings")
+takeProfitAmount2 = input.float(1, title="Take Profit Amount Step 2", group="Take Profit Settings")
+takeProfitAmount3 = input.float(1, title="Take Profit Amount Step 3", group="Take Profit Settings")
+takeProfitAmount4 = input.float(1, title="Take Profit Amount Step 4", group="Take Profit Settings")
+takeProfitAmount5 = input.float(1, title="Take Profit Amount Step 5", group="Take Profit Settings")
+
+//entry_price = strategy.opentrades.entry_price(strategy.opentrades - 1)
+Buy_Condition  = iTrend[1]==-1 and iTrend==1 
+Sell_Condition  = iTrend[1]==1 and iTrend==-1 
+
+var float amount = numberofamount
+var float chg_long= 0
+var float chg_short= 0
+
+var float ep=0
+var float st=0
+var float tp1=0
+var float tp2=0
+var float tp3=0
+var float tp4=0
+var float tp5=0
+var float qty=0
+
+if (tradeDirection == "Long" or tradeDirection == "Both")
+    if (Buy_Condition)
+        ep := close
+        chg_long:=amount
+        st:= ep * (1 - stopLossPercentage*0.01)
+        strategy.close("Short Entry", "Short Exit", qty=chg_short)
+        strategy.entry("Long Entry", strategy.long, qty=chg_long)
+    
+    if (strategy.position_size > 0)
+        //if (stopLossPercentage > 0)
+        //    st:= ep * (1 - stopLossPercentage*0.01)
+            //strategy.exit("Long Stop Exit", from_entry ="Long Entry",stop=st)
+
+        if (numberofamount>0)
+
+            tp1:=ep * (1 + takeProfitPercent1 / 100)
+            tp2:=ep * (1 + takeProfitPercent2 / 100)
+            tp3:=ep * (1 + takeProfitPercent3 / 100)
+            tp4:=ep * (1 + takeProfitPercent4 / 100)
+            tp5:=ep * (1 + takeProfitPercent5 / 100)
+
+        // Step 1
+        if (numberOfSteps >= 1)
+            strategy.exit("TP 1", from_entry="Long Entry", qty=takeProfitAmount1, limit=tp1)
+            chg_long:=chg_long==strategy.position_size?chg_long:chg_long - takeProfitAmount1
+        // Step 2
+        if (numberOfSteps >= 2)
+            strategy.exit("TP 2", from_entry="Long Entry", qty=takeProfitAmount2, limit=tp2)
+            chg_long:=chg_long==strategy.position_size?chg_long:chg_long - takeProfitAmount2
+        // Step 3
+        if (numberOfSteps >= 3)
+            strategy.exit("TP 3", from_entry="Long Entry", qty=takeProfitAmount3, limit=tp3)
+            chg_long:=chg_long==strategy.position_size?chg_long:chg_long - takeProfitAmount3
+        // Step 4
+        if (numberOfSteps >= 4)
+            strategy.exit("TP 4", from_entry="Long Entry", qty=takeProfitAmount4, limit=tp4)
+            chg_long:=chg_long==strategy.position_size?chg_long:chg_long - takeProfitAmount4
+        // Step 5
+        if (numberOfSteps == 5)
+            strategy.exit("TP 5", from_entry="Long Entry", qty=takeProfitAmount5, limit=tp5)
+            chg_long:=chg_long==strategy.position_size?chg_long:chg_long - takeProfitAmount5
+
+    if (Sell_Condition)
+        strategy.close("Long Entry", "Long Exit",qty =chg_long)
+
+if (tradeDirection == "Short" or tradeDirection == "Both")
+    if (Sell_Condition)
+        ep := close
+        chg_short:=amount
+        st:= ep * (1 + stopLossPercentage*0.01)
+        strategy.close("Long Entry", "Long Exit",qty =chg_long)
+        strategy.entry("Short Entry", strategy.short, qty=chg_short)
+
+    if (strategy.position_size < 0)
+
+        //if (stopLossPercentage > 0)
+        //    st:= ep * (1 + stopLossPercentage*0.01)
+        //    strategy.exit("Short Stop Exit", "Short Entry", stop=st)
+
+        if (numberofamount>0)
+            
+            tp1:=ep * (1 - takeProfitPercent1 / 100)
+            tp2:=ep * (1 - takeProfitPercent2 / 100)
+            tp3:=ep * (1 - takeProfitPercent3 / 100)
+            tp4:=ep * (1 - takeProfitPercent4 / 100)
+            tp5:=ep * (1 - takeProfitPercent5 / 100)
+
+        // Step 1
+        if (numberOfSteps >= 1)
+            strategy.exit("TP 1", from_entry="Short Entry", qty=takeProfitAmount1, limit=tp1)
+            chg_short:=chg_short==strategy.position_size?chg_short:chg_short + takeProfitAmount1
+        // Step 2
+        if (numberOfSteps >= 2)
+            strategy.exit("TP 2", from_entry="Short Entry", qty=takeProfitAmount2, limit=tp2)
+            chg_short:=chg_short==strategy.position_size?chg_short:chg_short + takeProfitAmount2
+        // Step 3
+        if (numberOfSteps >= 3)
+            strategy.exit("TP 3", from_entry="Short Entry", qty=takeProfitAmount3, limit=tp3)
+            chg_short:=chg_short==strategy.position_size?chg_short:chg_short + takeProfitAmount3
+        // Step 4
+        if (numberOfSteps >= 4)
+            strategy.exit("TP 4", from_entry="Short Entry", qty=takeProfitAmount4, limit=tp4)
+            chg_short:=chg_short==strategy.position_size?chg_short:chg_short + takeProfitAmount4
+
+        // Step 5
+        if (numberOfSteps == 5)
+            strategy.exit("TP 5", from_entry="Short Entry", qty=takeProfitAmount5, limit=tp5)
+            chg_short:=chg_short==strategy.position_size?chg_short:chg_short + takeProfitAmount5
+
+    if (Buy_Condition)
+        strategy.close("Short Entry", "Short Exit", qty=chg_short)
+
+// ====================--------------------- tp & sl -----------------=================== \\ based on free algo's ai signal gold
+var line_ep = line.new(na, na, na, na, width=1, color=color.blue)
+var label_ep = label.new(na, na, '', style=label.style_label_down, color=color.blue, textcolor=color.white, size=size.small)
+
+var line_st = line.new(na, na, na, na, width=1, color=color.red)
+var label_st = label.new(na, na, '', style=label.style_label_down, color=color.red, textcolor=color.white, size=size.small)
+
+var line_tp1 = line.new(na, na, na, na, width=1, color=color.green)
+var label_tp1 = label.new(na, na, '', style=label.style_label_down, color=color.green, textcolor=color.white, size=size.small)
+
+var line_tp2 = line.new(na, na, na, na, width=1, color=color.green)
+var label_tp2 = label.new(na, na, '', style=label.style_label_down, color=color.green, textcolor=color.white, size=size.small)
+
+var line_tp3 = line.new(na, na, na, na, width=1, color=color.green)
+var label_tp3 = label.new(na, na, '', style=label.style_label_down, color=color.green, textcolor=color.white, size=size.small)
+
+var line_tp4 = line.new(na, na, na, na, width=1, color=color.green)
+var label_tp4 = label.new(na, na, '', style=label.style_label_down, color=color.green, textcolor=color.white, size=size.small)
+
+var line_tp5 = line.new(na, na, na, na, width=1, color=color.green)
+var label_tp5 = label.new(na, na, '', style=label.style_label_down, color=color.green, textcolor=color.white, size=size.small)
+
+if  show_lb
+    line.set_xy1(line_ep, bar_index - 0, ep)
+    line.set_xy2(line_ep, bar_index + 1, ep)
+    line.set_extend(line_ep, extend.right)
+    label.set_xy(label_ep, bar_index + 30, ep)
+    label.set_text(label_ep, 'EP   : ' + str.tostring(ep, format.mintick))
+
+    if stopLossPercentage>0
+        line.set_xy1(line_st, bar_index - 0, st)
+        line.set_xy2(line_st, bar_index + 1, st)
+        line.set_extend(line_st, extend.right)
+        label.set_xy(label_st, bar_index + 30, st)
+        label.set_text(label_st, 'ST   : ' + str.tostring(st, format.mintick))
+
+    line.set_xy1(line_tp1, bar_index - 0, tp1)
+    line.set_xy2(line_tp1, bar_index + 1, tp1)
+    line.set_extend(line_tp1, extend.right)
+    label.set_xy(label_tp1, bar_index + 30, tp1)
+    label.set_text(label_tp1, 'TP 1 : ' + str.tostring(tp1, format.mintick))
+
+    line.set_xy1(line_tp2, bar_index - 0, tp2)
+    line.set_xy2(line_tp2, bar_index + 1, tp2)
+    line.set_extend(line_tp2, extend.right)
+    label.set_xy(label_tp2, bar_index + 30, tp2)
+    label.set_text(label_tp2, 'TP 2 : ' + str.tostring(tp2, format.mintick))
+
+    line.set_xy1(line_tp3, bar_index - 0, tp3)
+    line.set_xy2(line_tp3, bar_index + 1, tp3)
+    line.set_extend(line_tp3, extend.right)
+    label.set_xy(label_tp3, bar_index + 30, tp3)
+    label.set_text(label_tp3, 'TP 3 : ' + str.tostring(tp3, format.mintick))
+
+    line.set_xy1(line_tp4, bar_index - 0, tp4)
+    line.set_xy2(line_tp4, bar_index + 1, tp4)
+    line.set_extend(line_tp4, extend.right)
+    label.set_xy(label_tp4, bar_index + 30, tp4)
+    label.set_text(label_tp4, 'TP 4 : ' + str.tostring(tp4, format.mintick))
+
+    line.set_xy1(line_tp5, bar_index - 0, tp5)
+    line.set_xy2(line_tp5, bar_index + 1, tp5)
+    line.set_extend(line_tp5, extend.right)
+    label.set_xy(label_tp5, bar_index + 30, tp5)
+    label.set_text(label_tp5, 'TP 5 : ' + str.tostring(tp5, format.mintick))
